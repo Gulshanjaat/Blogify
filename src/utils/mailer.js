@@ -6,7 +6,7 @@ const transporter = mailer.createTransport({
     user: process.env.EMAIL,
     pass: process.env.PASSWORD,
   },
-});
+}); 
 
 const sendmail = async (to, text) => {
     try {

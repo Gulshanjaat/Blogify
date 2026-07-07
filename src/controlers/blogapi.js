@@ -1,10 +1,13 @@
 const blogmodel = require("../models/blogmodel")
 const cat_model = require("../models/categorymodel")
 const mongoose = require("mongoose")
+const fs = require("fs");
+const imagekit = require("../config/imagekit");
 
 
 const addblog = async (req, res) => {
     try {
+
         const { title, discription, cat_id } = req.body;
 
         if (!title || !discription || !cat_id) {
@@ -14,21 +17,58 @@ const addblog = async (req, res) => {
             });
         }
 
+        if (!req.file) {
+            return res.send({
+                status: false,
+                message: "Image Required",
+            });
+        }
 
-        const add = new blogmodel({ title, discription, cat_id, profile: req.file.filename })
-        add.save()
-        res.send({ status: true, message: "blog add sucessfully", add })
-    }
-    catch (error) {
+        // Upload image to ImageKit
+
+        const fileBuffer = fs.readFileSync(req.file.path);
+
+        const upload = await imagekit.upload({
+            file: fileBuffer,
+            fileName: req.file.originalname,
+            folder: "/blogify"
+        });
+        console.log("ImageKit Response:", upload);
+        console.log("Image URL:", upload.url);
+
+        // Delete local image
+
+        fs.unlinkSync(req.file.path);
+
+        // Save ImageKit URL in database
+
+        const add = new blogmodel({
+            title,
+            discription,
+            cat_id,
+            profile: upload.url
+        });
+        console.log("Saving profile:", upload.url);
+
+        await add.save();
+
+        res.send({
+            status: true,
+            message: "Blog Added Successfully",
+            add
+        });
+ 
+    } catch (error) {
+
         console.log(error);
 
         res.send({
             status: false,
             message: error.message
         });
-    }
 
-}
+    }
+};
 const add_cat = async (req, res) => {
     try {
         const { cat_name } = req.body
@@ -161,13 +201,13 @@ const updateBlog = async (req, res) => {
 
     }
 
-    catch(error){
+    catch (error) {
 
         res.send({
 
-            status:false,
+            status: false,
 
-            message:error.message
+            message: error.message
 
         })
 
@@ -176,31 +216,31 @@ const updateBlog = async (req, res) => {
 }
 
 const deleteBlog = async (req, res) => {
-  try {
-    const { _id } = req.params;
+    try {
+        const { _id } = req.params;
 
-    const deldata = await blogmodel.findByIdAndDelete(_id);
+        const deldata = await blogmodel.findByIdAndDelete(_id);
 
-    if (!deldata) {
-      return res.send({
-        status: false,
-        message: "Blog not found",
-      });
+        if (!deldata) {
+            return res.send({
+                status: false,
+                message: "Blog not found",
+            });
+        }
+
+        return res.send({
+            status: true,
+            message: "Blog deleted successfully",
+        });
+
+    } catch (error) {
+        console.log(error);
+
+        return res.send({
+            status: false,
+            message: error.message,
+        });
     }
-
-    return res.send({
-      status: true,
-      message: "Blog deleted successfully",
-    });
-
-  } catch (error) {
-    console.log(error);
-
-    return res.send({
-      status: false,
-      message: error.message,
-    });
-  }
 };
 
 const getSingleBlog = async (req, res) => {
